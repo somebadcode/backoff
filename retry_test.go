@@ -114,6 +114,7 @@ func TestRetryWithTimeout(t *testing.T) {
 			args: args{
 				backoff: backoff.Linear{
 					BaseDelay: 10 * time.Millisecond,
+					MaxDelay:  100 * time.Millisecond,
 				},
 				try:     tryN(t, 5, errDummy),
 				timeout: 20 * time.Millisecond,

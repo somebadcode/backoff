@@ -8,11 +8,13 @@ import (
 // Exponential implements an exponential backoff algorithm with jitter. Factor is at least 2.
 //
 // Formula: x(n) = b × fⁿ⁻¹ ± j, where n is the number of adverse events.
+// Do not specify negative duration for any of the fields.
 type Exponential struct {
 	// BaseDelay is the delay of the initial backoff.
 	BaseDelay time.Duration
 
-	// MaxDelay is the absolute maximum of a backoff delay, which includes the jitter.
+	// MaxDelay is the absolute maximum of a backoff delay, which includes the jitter. The maximum ever possible delay
+	// is MaxDelay + MaxJitter.
 	MaxDelay time.Duration
 
 	// MaxJitter is the maximum jitter of calculated delay. Leave at 0 to disable jitter.
@@ -35,8 +37,8 @@ func (e Exponential) Delay(adverseEvents int64) time.Duration {
 
 	multiplier := pow(max(2, e.Factor), max(0, adverseEvents-1))
 
-	return min(
-		e.BaseDelay.Abs()*time.Duration(multiplier)+time.Duration(jitter),
+	return max(min(
+		e.BaseDelay*time.Duration(multiplier),
 		e.MaxDelay,
-	).Abs()
+	)+time.Duration(jitter), e.BaseDelay)
 }

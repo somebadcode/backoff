@@ -5,7 +5,10 @@ import (
 	"time"
 )
 
+// Constant will cause a constant delay after each adverse event.
+// Do not specify negative duration for any of the fields.
 type Constant struct {
+	// ConstantDelay is the delay after each adverse event.
 	ConstantDelay time.Duration
 
 	// MaxJitter is the maximum jitter of calculated delay. Leave at 0 to disable jitter.

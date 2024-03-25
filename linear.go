@@ -5,11 +5,13 @@ import (
 	"time"
 )
 
+// Linear will cause a linearly increasing delay.
+// Do not specify negative duration for any of the fields.
 type Linear struct {
 	// BaseDelay is the delay of the initial backoff.
 	BaseDelay time.Duration
 
-	// MaxDelay is the absolute maximum of a backoff delay, which includes the jitter.
+	// MaxDelay is the absolute maximum of a backoff delay, which excludes the jitter.
 	MaxDelay time.Duration
 
 	// MaxJitter is the maximum jitter of calculated delay. Leave at 0 to disable jitter.
@@ -23,9 +25,8 @@ func (l Linear) Delay(adverseEvents int64) time.Duration {
 
 	// Calculate a random jitter if MaxJitter is not zero.
 	if l.MaxJitter != 0 {
-		l.MaxJitter = l.MaxJitter.Abs()
 		jitter = rand.Int64N(int64(l.MaxJitter<<1)) - int64(l.MaxJitter)
 	}
 
-	return min((l.BaseDelay*time.Duration(adverseEvents)).Abs()+time.Duration(jitter), l.MaxDelay.Abs())
+	return min(l.BaseDelay*time.Duration(adverseEvents), l.MaxDelay) + time.Duration(jitter)
 }
