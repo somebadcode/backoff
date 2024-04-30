@@ -10,17 +10,17 @@ import (
 // Formula: x(n) = b × fⁿ⁻¹ ± j, where n is the number of adverse events.
 // Do not specify negative duration for any of the fields.
 type Exponential struct {
-	// BaseDelay is the delay of the initial backoff.
+	// BaseDelay is the delay of the initial backoff and is later used to calculate the exponential delay.
 	BaseDelay time.Duration
 
-	// MaxDelay is the absolute maximum of a backoff delay, which includes the jitter. The maximum ever possible delay
+	// MaxDelay is the absolute maximum of a backoff delay. The maximum ever possible delay
 	// is MaxDelay + MaxJitter.
 	MaxDelay time.Duration
 
-	// MaxJitter is the maximum jitter of calculated delay. Leave at 0 to disable jitter.
+	// MaxJitter is the maximum jitter of the calculated backoff delay. Leave at 0 to disable jitter.
 	MaxJitter time.Duration
 
-	// Factor is used for the exponentially increasing the backoff delay.
+	// Factor is used to calculate the exponentially increasing the backoff delay.
 	Factor int64
 }
 
