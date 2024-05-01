@@ -13,7 +13,7 @@ var (
 	errDummy = errors.New("dummy error")
 )
 
-func tryN(t *testing.T, n int, err error) backoff.TryFunc {
+func tryN(t *testing.T, n int, err error) backoff.DoFunc {
 	t.Helper()
 
 	return func(ctx context.Context) error {
@@ -28,95 +28,122 @@ func tryN(t *testing.T, n int, err error) backoff.TryFunc {
 	}
 }
 
-func TestRetryWithTimeout(t *testing.T) {
-	type args struct {
-		backoff          backoff.Backoff
-		try              backoff.TryFunc
-		maxAdverseEvents uint
-		timeout          time.Duration
+func TestRetrier_RetryWithTimeout(t *testing.T) {
+	type fields struct {
+		Backoff          backoff.Backoff
+		MaxAdverseEvents uint
+		BaseDelay        time.Duration
+		MaxDelay         time.Duration
+		Jitter           time.Duration
 	}
+
+	type args struct {
+		ctx     context.Context
+		do      backoff.DoFunc
+		timeout time.Duration
+	}
+
 	tests := []struct {
 		name    string
+		fields  fields
 		args    args
 		wantErr bool
 	}{
 		{
 			name: "exponential_10ms_2_max100ms",
+			fields: fields{
+				Backoff:   backoff.Exponential(2),
+				BaseDelay: 10 * time.Millisecond,
+				MaxDelay:  15 * time.Millisecond,
+				Jitter:    5 * time.Millisecond,
+			},
 			args: args{
-				backoff: backoff.Exponential{
-					BaseDelay: 10 * time.Millisecond,
-					Factor:    2,
-					MaxDelay:  20 * time.Millisecond,
-					MaxJitter: 5 * time.Millisecond,
-				},
-				try:     tryN(t, 5, errDummy),
+				do:      tryN(t, 5, errDummy),
 				timeout: 100 * time.Millisecond,
 			},
 		},
 		{
 			name: "exponential_10ms_2_max100ms_timeout_10ms",
+			fields: fields{
+				Backoff:   backoff.Exponential(2),
+				BaseDelay: 5 * time.Millisecond,
+				MaxDelay:  100 * time.Millisecond,
+			},
 			args: args{
-				backoff: backoff.Exponential{
-					BaseDelay: 5 * time.Millisecond,
-					Factor:    2,
-					MaxDelay:  100 * time.Millisecond,
-				},
-				try:     tryN(t, 5, errDummy),
+				do:      tryN(t, 5, errDummy),
 				timeout: 10 * time.Millisecond,
 			},
 			wantErr: true,
 		},
 		{
 			name: "exponential_max_adverse_events",
+			fields: fields{
+				Backoff:          backoff.Exponential(2),
+				MaxAdverseEvents: 1,
+			},
 			args: args{
-				backoff:          backoff.Exponential{},
-				try:              tryN(t, 5, errDummy),
-				maxAdverseEvents: 1,
-				timeout:          50 * time.Millisecond,
+				do:      tryN(t, 5, errDummy),
+				timeout: 50 * time.Millisecond,
 			},
 			wantErr: true,
 		},
 		{
 			name: "constant_10ms",
+			fields: fields{
+				Backoff:   backoff.Constant(),
+				BaseDelay: 10 * time.Millisecond,
+				Jitter:    5 * time.Millisecond,
+			},
 			args: args{
-				backoff: backoff.Constant{
-					ConstantDelay: 10 * time.Millisecond,
-					MaxJitter:     5 * time.Millisecond,
-				},
-				try:     tryN(t, 2, errDummy),
+				do:      tryN(t, 2, errDummy),
 				timeout: 30 * time.Millisecond,
 			},
 		},
 		{
-			name: "constant_10ms_timeout_20ms",
+			name: "constant_deadline_exceeded",
+			fields: fields{
+				Backoff:   backoff.Constant(),
+				BaseDelay: 1 * time.Millisecond,
+			},
 			args: args{
-				backoff: backoff.Constant{
-					ConstantDelay: 10 * time.Millisecond,
-				},
-				try:     tryN(t, 5, errDummy),
+				do:      tryN(t, 100, errDummy),
+				timeout: 5 * time.Millisecond,
+			},
+			wantErr: true,
+		},
+		{
+			name: "constant_10ms_timeout_20ms",
+			fields: fields{
+				Backoff:   backoff.Constant(),
+				BaseDelay: 10 * time.Millisecond,
+			},
+			args: args{
+				do:      tryN(t, 5, errDummy),
 				timeout: 20 * time.Millisecond,
 			},
 			wantErr: true,
 		},
 		{
 			name: "linear_10ms",
+			fields: fields{
+				Backoff:   backoff.Linear(),
+				BaseDelay: 10 * time.Millisecond,
+				Jitter:    5 * time.Millisecond,
+			},
 			args: args{
-				backoff: backoff.Linear{
-					BaseDelay: 10 * time.Millisecond,
-					MaxJitter: 5 * time.Millisecond,
-				},
-				try:     tryN(t, 2, errDummy),
+				do:      tryN(t, 2, errDummy),
 				timeout: 30 * time.Millisecond,
 			},
 		},
 		{
 			name: "linear_10ms_timeout_20ms",
+			fields: fields{
+				Backoff:   backoff.Linear(),
+				BaseDelay: 10 * time.Millisecond,
+				MaxDelay:  100 * time.Millisecond,
+			},
 			args: args{
-				backoff: backoff.Linear{
-					BaseDelay: 10 * time.Millisecond,
-					MaxDelay:  100 * time.Millisecond,
-				},
-				try:     tryN(t, 5, errDummy),
+				do:      tryN(t, 5, errDummy),
 				timeout: 20 * time.Millisecond,
 			},
 			wantErr: true,
@@ -129,7 +156,23 @@ func TestRetryWithTimeout(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := backoff.RetryWithTimeout(context.Background(), tt.args.backoff, tt.args.maxAdverseEvents, tt.args.try, tt.args.timeout); (err != nil) != tt.wantErr {
+			r := &backoff.Retryable{
+				Backoff:          tt.fields.Backoff,
+				MaxAdverseEvents: tt.fields.MaxAdverseEvents,
+				BaseDelay:        tt.fields.BaseDelay,
+				MaxDelay:         tt.fields.MaxDelay,
+				Jitter:           tt.fields.Jitter,
+			}
+
+			var ctx context.Context
+
+			if tt.args.ctx != nil {
+				ctx = tt.args.ctx
+			} else {
+				ctx = context.Background()
+			}
+
+			if err := r.RetryWithTimeout(ctx, tt.args.timeout, tt.args.do); (err != nil) != tt.wantErr {
 				t.Errorf("RetryWithTimeout() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

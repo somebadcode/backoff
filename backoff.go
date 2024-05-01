@@ -1,13 +1,11 @@
 package backoff
 
 import (
-	"context"
 	"time"
 )
 
 type Backoff interface {
-	// Delay takes one argument which represents the number of adverse events and returns a backoff delay.
-	Delay(int64) time.Duration
+	// Delay takes two arguments which represent the base delay and the number of adverse events and returns a backoff delay.
+	// Jitter will be applied to the returned delay.
+	Delay(time.Duration, int64) time.Duration
 }
-
-type TryFunc func(ctx context.Context) error
