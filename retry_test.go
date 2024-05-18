@@ -126,7 +126,7 @@ func TestRetrier_RetryWithTimeout(t *testing.T) {
 		{
 			name: "linear_10ms",
 			fields: fields{
-				Backoff:   backoff.Linear(),
+				Backoff:   backoff.Linear(1.0),
 				BaseDelay: 10 * time.Millisecond,
 				Jitter:    5 * time.Millisecond,
 			},
@@ -138,7 +138,7 @@ func TestRetrier_RetryWithTimeout(t *testing.T) {
 		{
 			name: "linear_10ms_timeout_20ms",
 			fields: fields{
-				Backoff:   backoff.Linear(),
+				Backoff:   backoff.Linear(1.0),
 				BaseDelay: 10 * time.Millisecond,
 				MaxDelay:  100 * time.Millisecond,
 			},
